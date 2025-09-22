@@ -252,12 +252,12 @@ def create_daily_hlc_chart(percent_df, output_dir):
         # High-Low line (vertical line from low to high)
         ax.plot([i, i], [low, high], 'k-', linewidth=2, alpha=0.7)
 
-        # Close mark (horizontal tick on the right)
-        ax.plot([i + 0.1, i + 0.1], [close, close], 'r-', linewidth=3)
+        # Close mark (larger horizontal line extending from center to right)
+        ax.plot([i, i + 0.3], [close, close], 'r-', linewidth=4)
 
         # High and Low marks (small horizontal ticks)
-        ax.plot([i - 0.05, i + 0.05], [high, high], 'k-', linewidth=2)
-        ax.plot([i - 0.05, i + 0.05], [low, low], 'k-', linewidth=2)
+        ax.plot([i - 0.1, i + 0.1], [high, high], 'k-', linewidth=3)
+        ax.plot([i - 0.1, i + 0.1], [low, low], 'k-', linewidth=3)
 
     # Add zero line (Open is always 0%)
     ax.axhline(y=0, color='blue', linestyle='-', alpha=0.8, linewidth=2, label='Open (0%)')
