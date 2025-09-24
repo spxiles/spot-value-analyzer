@@ -44,11 +44,11 @@ def load_vix_data():
 
     vix_df = pd.read_csv(vix_file)
     # Convert date format from YYYYMMDD to datetime
-    vix_df['Date'] = pd.to_datetime(vix_df['Date'], format='%Y%m%d')
+    vix_df["Date"] = pd.to_datetime(vix_df["Date"], format="%Y%m%d")
     # Rename columns to avoid confusion
-    vix_df.rename(columns={'Date': 'Entry_Date', 'Open': 'VIX_Open'}, inplace=True)
+    vix_df.rename(columns={"Date": "Entry_Date", "Open": "VIX_Open"}, inplace=True)
     # Keep only the columns we need
-    vix_df = vix_df[['Entry_Date', 'VIX_Open']]
+    vix_df = vix_df[["Entry_Date", "VIX_Open"]]
     return vix_df
 
 
@@ -109,8 +109,8 @@ def aggregate_profits_by_date(df):
             profit_percentages.append(str(round(profit_pct, 4)))
 
         # Calculate high, low, close for dollar profits
-        high_profit = max(profit_values) if profit_values else 0
-        low_profit = min(profit_values) if profit_values else 0
+        high_profit = max(profit_values, default=0)
+        low_profit = min(profit_values, default=0)
         close_profit = profit_values[-1] if profit_values else 0  # Last value is the close
 
         # Calculate high, low, close for percentage profits
@@ -148,11 +148,11 @@ def aggregate_profits_by_date(df):
 
     # Merge with VIX data if available
     if not vix_df.empty:
-        result_df = result_df.merge(vix_df, on='Entry_Date', how='left')
+        result_df = result_df.merge(vix_df, on="Entry_Date", how="left")
         # Fill missing VIX values with NaN (or you could use 0 or forward fill)
-        print(f"VIX data merged. Missing dates will have NaN for VIX_Open")
+        print("VIX data merged. Missing dates will have NaN for VIX_Open")
     else:
-        result_df['VIX_Open'] = None
+        result_df["VIX_Open"] = None
 
     return result_df
 
@@ -173,7 +173,6 @@ def aggregate_profits_by_month(df):
     grouped = df_copy.groupby("Month_Year")
 
     monthly_data = []
-    cumulative_profit = 0  # Track cumulative profit across months
 
     for month_year, group in grouped:
         # Starting balance for the month (reset to NLV at start of each month + cumulative from previous months)
@@ -216,8 +215,8 @@ def aggregate_profits_by_month(df):
             profit_percentages.append(str(round(profit_pct, 4)))
 
         # Calculate high, low, close for dollar profits
-        high_profit = max(profit_values) if profit_values else 0
-        low_profit = min(profit_values) if profit_values else 0
+        high_profit = max(profit_values, default=0)
+        low_profit = min(profit_values, default=0)
         close_profit = profit_values[-1] if profit_values else 0  # Last value is the close
 
         # Calculate high, low, close for percentage profits
@@ -277,7 +276,16 @@ def load_and_merge_parquets():
         df = pd.read_parquet(file_path)
 
         df_filtered = df[
-            ["Position_Name", "Entry_Date", "Entry_Value", "Exit_Value", "Spot_Values", "Quantity", "Profit", "Custom_Column"]
+            [
+                "Position_Name",
+                "Entry_Date",
+                "Entry_Value",
+                "Exit_Value",
+                "Spot_Values",
+                "Quantity",
+                "Profit",
+                "Custom_Column",
+            ]
         ].copy()
 
         dataframes.append(df_filtered)
