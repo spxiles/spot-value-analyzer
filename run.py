@@ -2,6 +2,8 @@ import contextlib
 from datetime import datetime
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 # Configuration
@@ -67,10 +69,19 @@ def aggregate_profits_by_date(df):
     grouped = df_copy.groupby("Entry_Date")
 
     daily_data = []
-    cumulative_profit = 0  # Track cumulative profit
+    cumulative_profit = 0  # Track cumulative profit within the month
+    current_month = None  # Track current month to detect month changes
+    current_month_year = None
 
     for date, group in grouped:
-        # Calculate starting balance (NLV + cumulative profit from previous days)
+        # Check if we've moved to a new month
+        if current_month is None or date.month != current_month or date.year != current_month_year:
+            # Reset cumulative profit at the start of each new month
+            cumulative_profit = 0
+            current_month = date.month
+            current_month_year = date.year
+
+        # Calculate starting balance (NLV + cumulative profit from current month only)
         starting_balance = NLV + cumulative_profit
 
         # Sum up the final profit for this day
@@ -155,6 +166,81 @@ def aggregate_profits_by_date(df):
         result_df["VIX_Open"] = None
 
     return result_df
+
+
+def create_percent_profit_chart(daily_df, run_folder):
+    """Create a line chart of daily percent profit over time with average line"""
+    print("Creating percent profit over time chart...")
+
+    # Parse the Percent_Profit_Over_Time column
+    all_percent_data = []
+    max_length = 0
+
+    for _, row in daily_df.iterrows():
+        percent_str = row["Percent_Profit_Over_Time"]
+        if pd.notna(percent_str):
+            percent_values = [float(x) for x in percent_str.split(";") if x]
+            all_percent_data.append(percent_values)
+            max_length = max(max_length, len(percent_values))
+
+    # Create figure with high resolution
+    plt.figure(figsize=(20, 12), dpi=150)
+
+    # Plot each day's percent profit over time with transparency
+    for i, percent_values in enumerate(all_percent_data):
+        x_values = list(range(len(percent_values)))
+        plt.plot(x_values, percent_values, alpha=0.1, color='blue', linewidth=0.5)
+
+    # Calculate average at each time increment
+    averages = []
+    for position in range(max_length):
+        position_values = []
+        for percent_list in all_percent_data:
+            if position < len(percent_list):
+                position_values.append(percent_list[position])
+            elif len(percent_list) > 0:
+                # Use the last value if this list is shorter
+                position_values.append(percent_list[-1])
+
+        if position_values:
+            averages.append(np.mean(position_values))
+
+    # Plot the average line in bold red
+    if averages:
+        x_avg = list(range(len(averages)))
+        plt.plot(x_avg, averages, color='red', linewidth=3, label='Average', zorder=1000)
+
+    # Formatting
+    plt.xlabel('Time Interval', fontsize=12)
+    plt.ylabel('Percent Profit (%)', fontsize=12)
+    plt.title('Daily Percent Profit Over Time\n(All Days with Average)', fontsize=14, fontweight='bold')
+
+    # Add more y-axis ticks
+    ax = plt.gca()
+    y_min, y_max = ax.get_ylim()
+
+    # Major ticks every 2.5%
+    major_ticks = np.arange(np.floor(y_min/2.5)*2.5, np.ceil(y_max/2.5)*2.5 + 2.5, 2.5)
+    # Minor ticks every 0.5%
+    minor_ticks = np.arange(np.floor(y_min/0.5)*0.5, np.ceil(y_max/0.5)*0.5 + 0.5, 0.5)
+
+    ax.set_yticks(major_ticks)
+    ax.set_yticks(minor_ticks, minor=True)
+    ax.grid(True, which='major', alpha=0.3)
+    ax.grid(True, which='minor', alpha=0.1)
+
+    plt.legend(loc='best', fontsize=10)
+
+    # Add horizontal line at 0
+    plt.axhline(y=0, color='black', linestyle='-', linewidth=0.5, alpha=0.5)
+
+    # Save the chart
+    chart_path = run_folder / "percent_profit_over_time_chart.png"
+    plt.savefig(chart_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print(f"Chart saved to: {chart_path}")
+    return chart_path
 
 
 def aggregate_profits_by_month(df):
@@ -320,6 +406,13 @@ def load_and_merge_parquets():
     print(f"Exported daily aggregated data to: {daily_output_path}")
     print(f"Total days: {len(daily_df)}")
 
+    # Export daily aggregation to CSV without over_time columns
+    daily_csv_df = daily_df.drop(columns=["Profit_Over_Time", "Percent_Profit_Over_Time"], errors="ignore")
+    daily_csv_filename = "daily_aggregated.csv"
+    daily_csv_path = run_folder / daily_csv_filename
+    daily_csv_df.to_csv(daily_csv_path, index=False)
+    print(f"Exported daily aggregated CSV (no over_time lists) to: {daily_csv_path}")
+
     # Create monthly aggregation
     monthly_df = aggregate_profits_by_month(merged_df)
     monthly_output_filename = "monthly_aggregated.parquet"
@@ -327,6 +420,16 @@ def load_and_merge_parquets():
     monthly_df.to_parquet(monthly_output_path, index=False)
     print(f"Exported monthly aggregated data to: {monthly_output_path}")
     print(f"Total months: {len(monthly_df)}")
+
+    # Export monthly aggregation to CSV without over_time columns
+    monthly_csv_df = monthly_df.drop(columns=["Profit_Over_Time", "Percent_Profit_Over_Time"], errors="ignore")
+    monthly_csv_filename = "monthly_aggregated.csv"
+    monthly_csv_path = run_folder / monthly_csv_filename
+    monthly_csv_df.to_csv(monthly_csv_path, index=False)
+    print(f"Exported monthly aggregated CSV (no over_time lists) to: {monthly_csv_path}")
+
+    # Create percent profit over time chart
+    create_percent_profit_chart(daily_df, run_folder)
 
     print(f"\nAll files saved to: {run_folder}")
 
